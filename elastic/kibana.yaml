@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kibana
-  namespace: elastic
+  namespace: default
   labels:
     app.kubernetes.io/name: kibana
     app.kubernetes.io/instance: elastic
@@ -20,11 +20,19 @@ spec:
     spec:
       containers:
         - name: kibana
-          image: docker.elastic.co/kibana/kibana:7.4.0
+          image: docker.elastic.co/kibana/kibana:7.4.1
           ports:
             - name: http
               containerPort: 5601
           env:
             - name: ELASTICSEARCH_HOSTS
-              value: http://elasticsearch.elastic:9200
+              value: http://elasticsearch.default:9200
+          livenessProbe: &probe
+            httpGet:
+              path: /status
+              port: http
+            initialDelaySeconds: 30
+            failureThreshold: 10
+            periodSeconds: 10
+          readinessProbe: *probe
           resources: {}

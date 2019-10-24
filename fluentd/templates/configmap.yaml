@@ -6,6 +6,61 @@ metadata:
   labels:
 {{ include "fluentd.labels" . | indent 4 }}
 data:
+# Kubernetes configuration
+  kubernetes.conf: |-
+    # Ignore logs from fluentd
+    <match fluent.**>
+      @type null
+    </match>
+
+    <source>
+      @type tail
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      read_from_head true
+      time_format %Y-%m-%dT%H:%M:%S.%NZ
+      format json
+    </source>
+
+    # Pipe out any fluentd container logs
+    <match kubernetes.var.log.containers.**fluentd**.log>
+      @type null
+    </match>
+
+    # pipeout logs from kube system
+
+    <match kubernetes.var.log.containers.**kube-system**.log>
+      @type null
+    </match>
+    # pipeout logs from kubernetes dashboard 
+    <match kubernetes.var.log.containers.**dashboard**.log>
+      @type null
+    </match>
+    # pipepout logs from default namespace
+    <match kubernetes.var.log.containers.**default**.log>
+      @type null
+    </match>
+
+    <filter kubernetes.**>
+      @type parser
+      key_name log
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+        </pattern>
+        <pattern>
+          format none
+        </pattern>
+      </parse>
+    </filter>
+
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+    </filter>
+    
+  # Fluent main configuration
   fluent.conf: |-
     @include "#{ENV['FLUENTD_PROMETHEUS_CONF'] || 'prometheus'}.conf"
     @include kubernetes.conf
@@ -39,44 +94,3 @@ data:
         retry_forever true
       </buffer>
     </match>
-
-  kubernetes.conf: |-
-    <match fluent.**>
-      @type null
-    </match>
-
-    <source>
-      @type tail
-      path /var/log/containers/*.log
-      pos_file /var/log/fluentd-containers.log.pos
-      tag kubernetes.*
-      read_from_head true
-      format json
-      time_format %Y-%m-%dT%H:%M:%S.%NZ
-    </source>
-
-    <match kubernetes.var.log.containers.**fluentd**.log>
-      @type null
-    </match>
-
-    <match kubernetes.var.log.containers.**kube-system**.log>
-      @type null
-    </match>
-
-    <match kubernetes.var.log.containers.**dashboard**.log>
-      @type null
-    </match>
-
-    <match kubernetes.var.log.containers.**default**.log>
-      @type null
-    </match>
-
-    <filter kubernetes.**>
-      @type parser
-      format json
-      key_name log
-    </filter>
-
-    <filter kubernetes.**>
-      @type kubernetes_metadata
-    </filter>

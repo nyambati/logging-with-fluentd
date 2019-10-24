@@ -45,4 +45,4 @@ resources: {}
 
 elasticsearch:
   port: 9200
-  host: elasticsearch.elastic
+  host: elasticsearch.default
