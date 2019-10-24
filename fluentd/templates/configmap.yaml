@@ -51,6 +51,12 @@ data:
           format json
         </pattern>
         <pattern>
+          format apache2
+        </pattern>
+        <pattern>
+          format nginx
+        </pattern>
+        <pattern>
           format none
         </pattern>
       </parse>
