@@ -43,11 +43,6 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-elasticsearch:
-  port: 9200
-  host: elasticsearch.default
-
-
 fluentd:
   kubernetes:
     sources: |-
@@ -75,9 +70,6 @@ fluentd:
           @type multi_format
           <pattern>
             format json
-          </pattern>
-          <pattern>
-            format apache2
           </pattern>
           <pattern>
             format nginx
@@ -119,8 +111,8 @@ fluentd:
           - $["kubernetes"]["labels"]["helm_sh/chart"]
           - $["v"]
   outputs: |-
-    <match kubernetes.**>
-      @type elasticsearch
+    <match **>
+      @type elasticsearch_dynamic
       @id out_es
       @log_level info
       include_tag_key true
@@ -133,18 +125,25 @@ fluentd:
       reconnect_on_error "#{ENV['FLUENT_ELASTICSEARCH_RECONNECT_ON_ERROR'] || 'true'}"
       reload_on_failure "#{ENV['FLUENT_ELASTICSEARCH_RELOAD_ON_FAILURE'] || 'true'}"
       log_es_400_reason "#{ENV['FLUENT_ELASTICSEARCH_LOG_ES_400_REASON'] || 'false'}"
-      logstash_prefix "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_PREFIX'] || 'logstash'}"
+      logstash_prefix fluentd-${record["kubernetes"]["namespace_name"]}
       logstash_format "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_FORMAT'] || 'true'}"
-      index_name "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'logstash'}"
+      index_name "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'fluentd'}"
       type_name "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_TYPE_NAME'] || 'fluentd'}"
       rollover_index true
-      deflector_alias "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'logstash'}"
+      deflector_alias "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'fluentd'}"
       <buffer>
         flush_thread_count "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_FLUSH_THREAD_COUNT'] || '8'}"
         flush_interval "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_FLUSH_INTERVAL'] || '5s'}"
-        chunk_limit_size "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_CHUNK_LIMIT_SIZE'] || '2M'}"
         queue_limit_length "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_QUEUE_LIMIT_LENGTH'] || '32'}"
         retry_max_interval "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_RETRY_MAX_INTERVAL'] || '30'}"
         retry_forever true
       </buffer>
     </match>
+
+
+env:
+  FLUENT_ELASTICSEARCH_SED_DISABLE: "true"
+  FLUENT_ELASTICSEARCH_HOST: elasticsearch.default
+  FLUENT_ELASTICSEARCH_PORT: 9200
+  FLUENT_ELASTICSEARCH_SCHEME: "http"
+  FLUENT_ELASTICSEARCH_LOG_ES_400_REASON: true

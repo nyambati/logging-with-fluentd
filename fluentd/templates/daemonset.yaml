@@ -17,7 +17,6 @@ spec:
       {{- include "fluentd.labels" . | nindent 8 }}
       annotations:
         checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/env: {{ include (print $.Template.BasePath "/env.yaml") . | sha256sum }}
     spec:
       serviceAccount: {{ include "fluentd.fullname" . }}
       serviceAccountName: {{ include "fluentd.fullname" . }}
@@ -32,9 +31,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-          envFrom:
-            - configMapRef:
-                name: {{ include "fluentd.fullname" . }}-env
+            {{- range $key, $value := .Values.env }} 
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
           resources:
             limits:
               memory: 200Mi
