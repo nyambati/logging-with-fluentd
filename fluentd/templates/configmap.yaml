@@ -42,6 +42,13 @@ data:
       @type null
     </match>
 
+    # <match kubernetes.var.log.containers.**monitoring**.log>
+    #   @type null
+    # </match>
+
+    <match kubernetes.var.log.containers.**filebeat**.log>
+      @type null
+    </match>
     <filter kubernetes.**>
       @type parser
       key_name log
@@ -64,11 +71,30 @@ data:
 
     <filter kubernetes.**>
       @type kubernetes_metadata
+      cache_size 1000
+    </filter>
+
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby
+      remove_keys $["kubernetes"]["pod_name"],$["kubernetes"]["container_image_id"],$["docker"]["container_id"],$["kubernetes"]["namespace_id"],$["kubernetes"]["pod_id"], 
+    </filter>
+
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby
+      remove_keys $["kubernetes"]["namespace_labels"],$["kubernetes"]["master_url"],$["kubernetes"]["labels"]["pod-template-hash"],$["kubernetes"]["labels"]["app_kubernetes_io/version"]
+    </filter>
+
+    <filter kubernetes.**>
+      @type record_transformer
+      enable_ruby
+      remove_keys $["kubernetes"]["labels"]["heritage"],$["kubernetes"]["labels"]["app_kubernetes_io/version"],$["v"]
     </filter>
     
   # Fluent main configuration
   fluent.conf: |-
-    @include "#{ENV['FLUENTD_PROMETHEUS_CONF'] || 'prometheus'}.conf"
+    # @include "#{ENV['FLUENTD_PROMETHEUS_CONF'] || 'prometheus'}.conf"
     @include kubernetes.conf
     @include conf.d/*.conf
     <match **>
