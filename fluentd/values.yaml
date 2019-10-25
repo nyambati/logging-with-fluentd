@@ -46,3 +46,105 @@ resources: {}
 elasticsearch:
   port: 9200
   host: elasticsearch.default
+
+
+fluentd:
+  kubernetes:
+    sources: |-
+      <source>
+        @type tail
+        path /var/log/containers/*.log
+        pos_file /var/log/fluentd-containers.log.pos
+        tag kubernetes.*
+        read_from_head true
+        time_format %Y-%m-%dT%H:%M:%S.%NZ
+        format json
+      </source>
+    ignore:
+      - fluentd
+      - kube-system
+      - dashboard
+      - default
+      - filebeat
+      - monitoring
+    filters: |-
+      <filter kubernetes.**>
+        @type parser
+        key_name log
+        <parse>
+          @type multi_format
+          <pattern>
+            format json
+          </pattern>
+          <pattern>
+            format apache2
+          </pattern>
+          <pattern>
+            format nginx
+          </pattern>
+          <pattern>
+            format none
+          </pattern>
+        </parse>
+      </filter>
+
+      <filter kubernetes.**>
+        @type kubernetes_metadata
+        cache_size 1000
+      </filter>
+      <filter kubernetes.**>
+        @type record_transformer
+        enable_ruby
+        # cater for loggers with msg as message key
+        <record>
+          message ${ record["msg"] ? record["msg"] : record["message"]}
+        </record>
+        remove_keys msg
+      </filter>
+    removeKeys:
+      - match: kubernetes.**
+        keys: 
+          - $["kubernetes"]["pod_name"]
+          - $["kubernetes"]["container_image_id"]
+          - $["docker"]["container_id"]
+          - $["kubernetes"]["namespace_id"]
+          - $["kubernetes"]["pod_id"]
+          - $["kubernetes"]["namespace_labels"]
+          - $["kubernetes"]["master_url"]
+          - $["kubernetes"]["labels"]["pod-template-hash"]
+          - $["kubernetes"]["labels"]["app_kubernetes_io/version"]
+          - $["kubernetes"]["labels"]["heritage"] 
+          - $["kubernetes"]["labels"]["app_kubernetes_io/version"]
+          - $["kubernetes"]["labels"]["app_kubernetes_io/managed-by"]
+          - $["kubernetes"]["labels"]["helm_sh/chart"]
+          - $["v"]
+  outputs: |-
+    <match kubernetes.**>
+      @type elasticsearch
+      @id out_es
+      @log_level info
+      include_tag_key true
+      host "#{ENV['FLUENT_ELASTICSEARCH_HOST']}"
+      port "#{ENV['FLUENT_ELASTICSEARCH_PORT']}"
+      scheme "#{ENV['FLUENT_ELASTICSEARCH_SCHEME']}"
+      password "#{ENV['FLUENT_ELASTICSEARCH_PASSWORD']}"
+      password "#{ENV['FLUENT_ELASTICSEARCH_PASSWORD']}"
+      reload_connections "#{ENV['FLUENT_ELASTICSEARCH_RELOAD_CONNECTIONS'] || 'false'}"
+      reconnect_on_error "#{ENV['FLUENT_ELASTICSEARCH_RECONNECT_ON_ERROR'] || 'true'}"
+      reload_on_failure "#{ENV['FLUENT_ELASTICSEARCH_RELOAD_ON_FAILURE'] || 'true'}"
+      log_es_400_reason "#{ENV['FLUENT_ELASTICSEARCH_LOG_ES_400_REASON'] || 'false'}"
+      logstash_prefix "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_PREFIX'] || 'logstash'}"
+      logstash_format "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_FORMAT'] || 'true'}"
+      index_name "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'logstash'}"
+      type_name "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_TYPE_NAME'] || 'fluentd'}"
+      rollover_index true
+      deflector_alias "#{ENV['FLUENT_ELASTICSEARCH_LOGSTASH_INDEX_NAME'] || 'logstash'}"
+      <buffer>
+        flush_thread_count "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_FLUSH_THREAD_COUNT'] || '8'}"
+        flush_interval "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_FLUSH_INTERVAL'] || '5s'}"
+        chunk_limit_size "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_CHUNK_LIMIT_SIZE'] || '2M'}"
+        queue_limit_length "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_QUEUE_LIMIT_LENGTH'] || '32'}"
+        retry_max_interval "#{ENV['FLUENT_ELASTICSEARCH_BUFFER_RETRY_MAX_INTERVAL'] || '30'}"
+        retry_forever true
+      </buffer>
+    </match>

@@ -10,7 +10,7 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-    - host: logging.local
+    - host: elastic.dev.shuttle.wundermobility.com
       http:
         paths:
           - path: /
